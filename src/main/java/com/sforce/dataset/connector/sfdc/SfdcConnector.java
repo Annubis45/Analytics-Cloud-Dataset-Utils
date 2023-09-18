@@ -68,6 +68,18 @@ public class SfdcConnector implements IConnector {
 
 			@ConnectionProperty(label = "Security Token", type = ConnectionPropertyType.STRING, password = true)
 			public String token = null;
+			
+			@ConnectionProperty(label = "JKS File", type = ConnectionPropertyType.STRING, password = true)
+			public String jksFile = null;
+			
+			@ConnectionProperty(label = "JKS Password", type = ConnectionPropertyType.STRING, password = true)
+			public String jksPassword = null;
+			
+			@ConnectionProperty(label = "Client Id", type = ConnectionPropertyType.STRING, password = true)
+			public String clientId = null;
+			
+			
+			
 					
 		public String getUsername() {
 			return username;
@@ -100,6 +112,14 @@ public class SfdcConnector implements IConnector {
 		public void setConnectionUrl(String connectionUrl) {
 			this.connectionUrl = connectionUrl;
 		}
+		
+		public String getJksFile() {
+			return jksFile;
+		}
+
+		public void setJksFile(String jksFile) {
+			this.jksFile = jksFile;
+		}
 
 		private PartnerConnection partnerConnection = null;
 					
@@ -126,7 +146,7 @@ public class SfdcConnector implements IConnector {
 		{
 			logger.debug("SFDCConnectorImpl.connect()");
 			try {
-				partnerConnection = DatasetUtils.login(0, username, password, token, connectionUrl, connectionUrl, false);
+				partnerConnection = DatasetUtils.login(0, username, password, token,jksFile,jksPassword, clientId, connectionUrl, connectionUrl, false);
 			} catch (MalformedURLException e) {
 				throw new ConnectionException(e.getMessage());
 			} catch (com.sforce.ws.ConnectionException e) {

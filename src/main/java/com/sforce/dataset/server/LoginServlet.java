@@ -66,6 +66,11 @@ public class LoginServlet extends HttpServlet {
 			String authEndpoint = request.getParameter("AuthEndpoint");
 			String access_token = request.getParameter("access_token");
 			String instance_url = request.getParameter("instance_url");
+			String jksFile = request.getParameter("jksFile");
+			String jksPassword= request.getParameter("jksPassword");
+			String clientId= request.getParameter("clientId");
+			
+			
 //			String refresh_token = request.getParameter("refresh_token");
 //			String scope = request.getParameter("scope");
 
@@ -155,7 +160,7 @@ public class LoginServlet extends HttpServlet {
 				authEndpoint = instance_url;
 			}
 			
-			PartnerConnection conn = DatasetUtils.login(0, userName, password, null, authEndpoint, sessionId, false);
+			PartnerConnection conn = DatasetUtils.login(0, userName, password, null,jksFile,jksPassword, clientId, authEndpoint, sessionId, false);
 			ConnectorConfig config = conn.getConfig();
 
 			GetServerTimestampResult serverTimestampResult = conn.getServerTimestamp();							

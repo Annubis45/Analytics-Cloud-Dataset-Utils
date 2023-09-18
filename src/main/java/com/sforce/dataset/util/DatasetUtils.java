@@ -28,6 +28,7 @@ import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.Console;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -38,6 +39,9 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
@@ -46,6 +50,8 @@ import java.nio.charset.CharsetEncoder;
 import java.nio.charset.CodingErrorAction;
 import java.sql.RowId;
 import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -58,6 +64,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import java.security.*;
+import java.security.cert.CertificateException;
+import java.security.spec.InvalidKeySpecException;
+import java.text.MessageFormat;  
+
+import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.filefilter.IOFileFilter;
@@ -86,6 +98,9 @@ import com.sforce.soap.partner.PartnerConnection;
 import com.sforce.soap.partner.fault.LoginFault;
 import com.sforce.ws.ConnectionException;
 import com.sforce.ws.ConnectorConfig;
+
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
 
 /**
  * The Class DatasetUtils.
@@ -489,6 +504,92 @@ public class DatasetUtils {
 		return Session.listSessions(connection.getUserInfo().getOrganizationId());
 	}
 	
+	/***
+	 * 
+	 * @param jksFile
+	 * @param jksPassword
+	 * @return
+	 */
+	private static String createJwtSignedRSA(String jksFile,String jksPassword, String username, String clientId) {
+
+	    Key privateKey = getPrivateKey(jksFile,jksPassword);
+
+	    Instant now = Instant.now();
+	    String jwtToken = Jwts.builder()
+	    		.setIssuer(clientId)
+	            .setSubject(username)
+	            .setId(UUID.randomUUID().toString())
+	            .setIssuedAt(Date.from(now))
+	            .setAudience("https://login.salesforce.com")
+	            .setExpiration(Date.from(now.plus(5l, ChronoUnit.MINUTES)))
+	            .signWith(privateKey,SignatureAlgorithm.RS256)
+	            .compact();
+
+	    return jwtToken;
+	}
+	
+	/**
+	 * 
+	 * @param jksFile
+	 * @param jksPassword
+	 * @return
+	 */
+	private static Key getPrivateKey(String jksFile,String jksPassword) {
+
+        
+		KeyStore ks;
+		Key key=null;
+		try {
+			ks = KeyStore.getInstance(KeyStore.getDefaultType());
+			ks.load(new FileInputStream(jksFile), jksPassword.toCharArray());
+			key = ks.getKey("waveloader", jksPassword.toCharArray());
+			
+		} catch (CertificateException | IOException | KeyStoreException | UnrecoverableKeyException | NoSuchAlgorithmException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			throw new IllegalArgumentException("Error with the JKS File.");
+		}
+		return key;
+	}
+	
+	
+    private static String getSessionFromJWT(String jwt, String endpoint) {
+    	
+    	try {
+    		
+        	 
+        	HttpClient client = HttpClient.newHttpClient();
+        	HttpRequest request = HttpRequest.newBuilder()
+        			  .uri(URI.create(endpoint + "/services/oauth2/token"))
+        			  .POST(HttpRequest.BodyPublishers.ofString("grant_type= urn:ietf:params:oauth:grant-type:jwt-bearer&assertion="+jwt))
+        			  .header("Content-Type", "application/x-www-form-urlencoded")
+        			  .header("Accept", "application/json")
+        			  .build();
+        	
+			HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+			ObjectMapper mapper = new ObjectMapper();
+		    Map<?, ?> map = mapper.readValue(response.body(), Map.class);
+
+		    // print map entries
+		    for (Map.Entry<?, ?> entry : map.entrySet()) {
+		        System.out.println(entry.getKey() + "=" + entry.getValue());
+		        if((String)entry.getKey()=="access_token")
+		        {
+		        	return (String) entry.getValue();
+		        }
+		    }
+
+			
+			System.out.println("*************************");
+		} catch (IOException | InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			throw new IllegalArgumentException("Error with the getSessionFromJWT.");
+		}
+		return null;
+	}
+	
 	/**
 	 * Login.
 	 *
@@ -503,20 +604,37 @@ public class DatasetUtils {
 	 * @throws ConnectionException the connection exception
 	 * @throws MalformedURLException the malformed url exception
 	 */
-	public static PartnerConnection login(int retryCount,String username,String password, String token, String endpoint, String sessionId, boolean debug) throws ConnectionException, MalformedURLException  {
+	public static PartnerConnection login(int retryCount,String username,String password, String token, String jksFile,String jksPassword, String clientId, String endpoint, String sessionId, boolean debug) throws ConnectionException, MalformedURLException  {
 
 		if(sessionId==null)
 		{
 			if (username == null || username.isEmpty()) {
 				throw new IllegalArgumentException("username is required");
 			}
+			
+			if(jksFile == null)
+			{
+				if (password == null || password.isEmpty()) {
+					throw new IllegalArgumentException("password is required");
+				}
 	
-			if (password == null || password.isEmpty()) {
-				throw new IllegalArgumentException("password is required");
+				if (token != null)
+					password = password + token;
+			}else
+			{
+				try {
+					URL endpointURI =new URL(endpoint);
+		        	String sourceUrL = new URL(endpointURI.getProtocol(), endpointURI.getHost(), endpointURI.getPort(),"").toString(); 
+		        	
+					String jwt = createJwtSignedRSA(jksFile,jksPassword,username, clientId);
+					System.out.println(jwt);
+					sessionId = getSessionFromJWT(jwt,sourceUrL);
+					
+				}catch (Exception e){
+					e.printStackTrace();
+					throw new IllegalArgumentException("jksFile is required");
+				}
 			}
-
-			if (token != null)
-				password = password + token;
 		}
 
 		if (endpoint == null || endpoint.isEmpty()) {
@@ -608,7 +726,7 @@ public class DatasetUtils {
 				} catch (InterruptedException e1) {
 					e1.printStackTrace();
 				}
-				return login(retryCount,username, password, null, endpoint, sessionId, debug);
+				return login(retryCount,username, password, null, jksFile,jksPassword,clientId, endpoint, sessionId, debug);
 			}
 			throw new ConnectionException(e.toString());
 		}
@@ -639,7 +757,9 @@ public class DatasetUtils {
 //    }
 
 
-    /**
+
+
+	/**
  * Gets the connector config.
  *
  * @return the connector config

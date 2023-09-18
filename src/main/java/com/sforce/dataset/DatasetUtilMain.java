@@ -138,6 +138,18 @@ public class DatasetUtilMain {
 				{
 					params.token = args[i];
 				}
+				else if(args[i-1].equalsIgnoreCase("--jksFile"))
+				{
+					params.jksFile = args[i];
+				}
+				else if(args[i-1].equalsIgnoreCase("--jksPassword"))
+				{
+					params.jksPassword = args[i];
+				}
+				else if(args[i-1].equalsIgnoreCase("--clientId"))
+				{
+					params.clientId = args[i];
+				}
 				else if(args[i-1].equalsIgnoreCase("--endpoint"))
 				{
 					params.endpoint = args[i];
@@ -368,7 +380,7 @@ public class DatasetUtilMain {
 				params.password = null;
 			}else
 			{
-				if(params.password == null || params.password.trim().isEmpty())
+				if((params.password == null  || params.password.trim().isEmpty())&&params.jksFile==null)
 				{
 					params.password = getInputFromUser("Enter salesforce password: ", true, true);						
 				}
@@ -440,7 +452,7 @@ public class DatasetUtilMain {
 		if(params.username!=null || params.sessionId != null)
 		{
 			try {
-				partnerConnection  = DatasetUtils.login(0, params.username, params.password, params.token, params.endpoint, params.sessionId, params.debug);
+				partnerConnection  = DatasetUtils.login(0, params.username, params.password, params.token, params.jksFile,params.jksPassword, params.clientId,params.endpoint, params.sessionId, params.debug);
 			} catch (ConnectionException e) {
 				e.printStackTrace();
 				System.exit(-1);

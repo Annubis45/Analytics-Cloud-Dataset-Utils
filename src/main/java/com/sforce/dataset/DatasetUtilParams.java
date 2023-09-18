@@ -34,6 +34,9 @@ public class DatasetUtilParams {
 	String username = null;
 	String password = null;
 	String token = null;
+	String jksFile=null;
+	String jksPassword=null;
+	String clientId=null;
 	String sessionId = null;
 	String endpoint = null;
 	String inputFile = null;
