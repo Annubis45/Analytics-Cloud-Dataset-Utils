@@ -510,17 +510,20 @@ public class DatasetUtils {
 	 * @param jksPassword
 	 * @return
 	 */
-	private static String createJwtSignedRSA(String jksFile,String jksPassword, String username, String clientId) {
+	private static String createJwtSignedRSA(String jksFile,String jksPassword, String username, String clientId, String endpoint) {
 
 	    Key privateKey = getPrivateKey(jksFile,jksPassword);
-
+	    String audience = "https://login.salesforce.com";
+	    if(endpoint.toLowerCase().contains("sandbox.my.salesforce.com"))
+	    	audience = "https://test.salesforce.com";
+	    
 	    Instant now = Instant.now();
 	    String jwtToken = Jwts.builder()
 	    		.setIssuer(clientId)
 	            .setSubject(username)
 	            .setId(UUID.randomUUID().toString())
 	            .setIssuedAt(Date.from(now))
-	            .setAudience("https://login.salesforce.com")
+	            .setAudience(audience)
 	            .setExpiration(Date.from(now.plus(5l, ChronoUnit.MINUTES)))
 	            .signWith(privateKey,SignatureAlgorithm.RS256)
 	            .compact();
@@ -626,8 +629,7 @@ public class DatasetUtils {
 					URL endpointURI =new URL(endpoint);
 		        	String sourceUrL = new URL(endpointURI.getProtocol(), endpointURI.getHost(), endpointURI.getPort(),"").toString(); 
 		        	
-					String jwt = createJwtSignedRSA(jksFile,jksPassword,username, clientId);
-					System.out.println(jwt);
+					String jwt = createJwtSignedRSA(jksFile,jksPassword,username, clientId,endpoint);
 					sessionId = getSessionFromJWT(jwt,sourceUrL);
 					
 				}catch (Exception e){
@@ -643,7 +645,7 @@ public class DatasetUtils {
 		
 		if(sessionId != null && !sessionId.isEmpty())
 		{
-			while(endpoint.toLowerCase().contains("login.salesforce.com") || endpoint.toLowerCase().contains("test.salesforce.com") || endpoint.toLowerCase().contains("test") || endpoint.toLowerCase().contains("prod") || endpoint.toLowerCase().contains("sandbox"))
+			while(endpoint.toLowerCase().contains("login.salesforce.com") || endpoint.toLowerCase().contains("test.salesforce.com") || endpoint.toLowerCase().contains("test") || endpoint.toLowerCase().contains("prod"))
 			{
 				throw new IllegalArgumentException("ERROR: endpoint must be the actual serviceURL and not the login url");
 			}

@@ -76,6 +76,10 @@ Input Parameter
 
 --token   : (Optional) Salesforce.com token
 
+--jksFile : (Optional) JKS file for JWT bearer flow (the key need to be with the name waveloader). if specified, specify endpoint
+
+--jksPassword : (Optional) password of the jks file
+
 --endpoint: (Optional) The Salesforce soap api endpoint (test/prod) Default: https://login.salesforce.com
 
 --dataset : (Optional) the dataset alias. required if action=load
@@ -129,6 +133,9 @@ Input Parameter
 
 ## Usage Example 8: download error logs file for csv uploads
     java -jar datasetutils-48.1.1.jar --action downloadErrorFile --u pgupta@force.com --p @#@#@# --dataset puntest
+    
+## Usage Example 9: Load using a JWT flow for connexion
+    java -jar datasetutils-48.1.1.jar --action load --jksFile 00D7Q00000CH4RX.jks --jksPassword @#@#@# --inputFile opp.csv --dataset puntest --u pgupta@force.com --clientId 3MV000000.pBypZ1WCULzO1QO00000.8T72XSdBJu_w7hwZDLR9R0Y4si41BUoaeoZBMlRy0GbW9K000000 --endpoint https://test.salesforce.com/
 
 ## Building DatasetUtils
     git clone https://github.com/forcedotcom/Analytics-Cloud-Dataset-Utils.git
